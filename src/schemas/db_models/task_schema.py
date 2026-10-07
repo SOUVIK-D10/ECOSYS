@@ -72,6 +72,7 @@ class Task(SQLModel, table=True):
     assigner: Optional[str] = "UNKNOWN"
     assignee: Optional[str] = "UNKNOWN"
     project_id: Optional[int] = Field(default=None, foreign_key="project.id")
+    is_freezed: bool = Field(default=False)
     project: Optional["Project"] = Relationship(back_populates="tasks")  # type: ignore
     tags: List[Tag] = Relationship(back_populates="tasks", link_model=TaskTagLink)
 # --------------------------------------------------------------------------------------------------

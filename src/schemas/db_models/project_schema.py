@@ -14,6 +14,7 @@ class ProjectState(str, Enum):
     IN_PROGRESS = "In Progress"
     BLOCKED = "Blocked"
     COMPLETED = "Completed"
+    CANCEL = "Cancel"
 # --------------------------------------------------------------------------------------------------
 class ProjectPriority(int, Enum):
     URGENT = 5

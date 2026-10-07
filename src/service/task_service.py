@@ -4,18 +4,38 @@ from fastapi import HTTPException
 from sqlmodel import  Session, select, col
 
 from schemas.db_models.common_schema import Tag
-from schemas.db_models.task_schema import Task, TaskState
+from schemas.db_models.task_schema import CreateTaskDTO, Task, TaskState
 
 
 class TaskService:
     def __init__(self, session: Session):
         self.session = session
 
-    def create_task(self, task_dto) -> "Task":
+    def create_task(self, task_dto:CreateTaskDTO) -> "Task":
         task = Task.model_validate(task_dto)
+        if(task.deadline != None and datetime.now(timezone.utc) >= task.deadline):
+            raise HTTPException(status_code=400, detail="Deadline cannot be in the past or present or null")
         self.session.add(task)
         self.session.commit()
         self.session.refresh(task)
+        return task
+    
+    def update_task(self, task_id: int, task_dto: CreateTaskDTO) -> "Task":
+        task = self.session.get(Task, task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        if(task.deadline != None and datetime.now(timezone.utc) >= task.deadline):
+            raise HTTPException(status_code=400, detail="Deadline cannot be in the past or present or null")
+
+        update_data = task_dto.model_dump(exclude_unset=True)
+
+        for key, value in update_data.items():
+            setattr(task, key, value)
+        
+        self.session.add(task)
+        self.session.commit()
+        self.session.refresh(task)
+    
         return task
 
     def update_task_state(self, task_id: int, new_state: "TaskState") -> "Task":
@@ -104,3 +124,10 @@ class TaskService:
             raise HTTPException(status_code=404, detail="Task not found in the grid")
             
         return task
+    
+    def delete_task(self, task_id: int) -> None:
+        task = self.session.get(Task, task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found in the grid")
+        self.session.delete(task)
+        self.session.commit()

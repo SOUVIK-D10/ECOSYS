@@ -4,7 +4,9 @@ from fastapi import HTTPException
 from sqlmodel import  Session, select, col
 
 from schemas.db_models.common_schema import Tag
-from schemas.db_models.project_schema import Project, ProjectState
+from schemas.db_models.project_schema import CreateProjectDTO, Project, ProjectState
+from schemas.db_models.task_schema import TaskState
+from service import task_service
 
 
 
@@ -12,19 +14,49 @@ class ProjectService:
     def __init__(self, session: Session):
         self.session = session
 
-    def create_project(self, project_dto) -> "Project":
+    def create_project(self, project_dto: CreateProjectDTO) -> "Project":
         project = Project.model_validate(project_dto)
+        project.assigned_on = datetime.now(timezone.utc)
+        project.state = ProjectState.NOT_STARTED
+        if(project.deadline != None and datetime.now(timezone.utc) >= project.deadline):
+            raise HTTPException(status_code=400, detail="Deadline cannot be in the past or present or null")
         self.session.add(project)
         self.session.commit()
         self.session.refresh(project)
+        return project
+    
+    def update_project(self, project_id: int, project_dto: CreateProjectDTO) -> "Project":
+        project = self.session.get(Project, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        if(project.deadline != None and datetime.now(timezone.utc) >= project.deadline):
+            raise HTTPException(status_code=400, detail="Deadline cannot be in the past or present or null")
+        update_data = project_dto.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(project, key, value)
+        self.session.add(project)
+        self.session.commit()
+        self.session.refresh(project)
+    
         return project
 
     def update_project_state(self, project_id: int, new_state: "ProjectState") -> "Project":
         project = self.session.get(Project, project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found in the grid")
-        
+        if(project.state == ProjectState.CANCEL and new_state != ProjectState.CANCEL):
+            for task in project.tasks:
+                task.is_freezed=False
+                self.session.add(task)
         project.state = new_state
+        if(project.state == ProjectState.COMPLETED):
+            for task in project.tasks:
+                task.state = TaskState.COMPLETED
+                self.session.add(task)
+        if(project.state == ProjectState.CANCEL):
+            for task in project.tasks:
+                task.is_freezed=True
+                self.session.add(task)
         self.session.add(project)
         self.session.commit()
         self.session.refresh(project)
@@ -105,3 +137,13 @@ class ProjectService:
             raise HTTPException(status_code=404, detail="Project not found in the grid")
             
         return project
+    
+    def delete_project(self, project_id: int) -> None:
+        project = self.session.get(Project, project_id)
+
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found in the grid")
+        for task in project.tasks:
+            task_service.TaskService(self.session).delete_task(task.id or 0)
+        self.session.delete(project)
+        self.session.commit()

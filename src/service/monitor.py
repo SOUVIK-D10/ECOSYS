@@ -1,18 +1,17 @@
 import asyncio
-
 import psutil
 import datetime
 from pydantic import BaseModel
+from enum import Enum
 
-
-# class Status:
-#     GREEN = "HEALTHY"
-#     YELLOW = "UNWELL"
-#     ORANGE = "UNHEALTHY"
-#     RED = "ALERTING RED"
+class Status(str, Enum):
+    GREEN = "HEALTHY"
+    YELLOW = "UNWELL"
+    ORANGE = "UNHEALTHY"
+    RED = "CRITICAL"
 
 class SystemHealthDTO(BaseModel):
-    status: str = "UNSURE"
+    status: Status = Status.YELLOW
     uptime: str
     cpu_usage_percent: float
     ram_left_gb: float
@@ -48,9 +47,10 @@ async def check_server_health():
             
             # Return the data matching our DTO
             data = SystemHealthDTO(
+                status=Status.GREEN if(cpu_usage<50 and ram.percent<70 and disk.percent<80) else Status.YELLOW if(cpu_usage<70 and ram.percent<80 and disk.percent<85) else Status.ORANGE if(cpu_usage<90 and ram.percent<90 and disk.percent<90) else Status.RED,
                 uptime=uptime,
                 cpu_usage_percent=cpu_usage,
-                ram_left_gb=ram.free,
+                ram_left_gb=ram.free/(1024**3),
                 ram_usage_percent=ram.percent,
                 disk_free_gb=bytes_to_gb(disk.free),
                 disk_usage_percent=disk.percent,
