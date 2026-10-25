@@ -4,3 +4,4 @@ sqlmodel==0.0.22
 customtkinter
 requests
 psutil
+psycopg2-binary

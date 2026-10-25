@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OASIS</string>
+    <string name="title_activity_main">OASIS</string>
+    <string name="package_name">com.sltlabs.oasis</string>
+    <string name="custom_url_scheme">com.sltlabs.oasis</string>
+</resources>
