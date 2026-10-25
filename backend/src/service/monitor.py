@@ -28,23 +28,17 @@ def bytes_to_gb(bytes_value: int) -> float:
 async def check_server_health():
     try:
         while True:
-            # Uptime safely calculated from process or boot time
+            # Gather your metrics...
             try:
                 boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
                 uptime = str(datetime.datetime.now() - boot_time).split('.')[0]
             except Exception:
                 uptime = "N/A"
             
-            # CPU
             cpu_usage = psutil.cpu_percent(interval=0.1)
-            
-            # RAM
             ram = psutil.virtual_memory()
-            
-            # Disk
             disk = psutil.disk_usage('/')
             
-            # Battery (Safe fallback for cloud servers like Render)
             try:
                 power = psutil.sensors_battery()
                 plugged = power.power_plugged if power else True
@@ -53,7 +47,6 @@ async def check_server_health():
                 plugged = True
                 percent = 100.0
             
-            # Build DTO and dump JSON
             data = SystemHealthDTO(
                 status=Status.GREEN if (cpu_usage < 50 and ram.percent < 70 and disk.percent < 80) else Status.YELLOW if (cpu_usage < 70 and ram.percent < 80 and disk.percent < 85) else Status.ORANGE if (cpu_usage < 90 and ram.percent < 90 and disk.percent < 90) else Status.RED,
                 uptime=uptime,
@@ -66,8 +59,14 @@ async def check_server_health():
                 battery_is_power_plugged=plugged
             ).model_dump_json()
 
+            # 1. Send the actual payload
             yield f"data: {data}\n\n"
 
-            await asyncio.sleep(10)
+            # 2. Send rapid sub-second pings to trick Cloudflare/Render proxies 
+            # into keeping the TCP socket open during the 10-second wait window
+            for _ in range(5):
+                await asyncio.sleep(2)
+                yield f": heartbeat\n\n" # SSE comment ping (ignored by clients, keeps proxy alive)
+
     except asyncio.CancelledError:
         pass
