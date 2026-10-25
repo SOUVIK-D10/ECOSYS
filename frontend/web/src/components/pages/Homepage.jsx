@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useSystemHealth } from '../../hooks/useSystemHealth';
 import Core3D from '../me/3DCore';
+import { BASE_URL } from '../../hooks/api';
 
 export default function Homepage() {
-  const { healthData, connectionStatus } = useSystemHealth('http://localhost:8001/monitor/health');
+  const { healthData, connectionStatus } = useSystemHealth(`${BASE_URL}/monitor/health`);
 
   // References for measuring exact pixel locations for SVG vector lines
   const containerRef = useRef(null);
