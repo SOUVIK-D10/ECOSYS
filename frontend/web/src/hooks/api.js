@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8001';
+const BASE_URL = 'https://oasis-backend-locb.onrender.com';
 
 /**
  * Universal fetch wrapper for API calls.

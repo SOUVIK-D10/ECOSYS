@@ -37,11 +37,16 @@ app.add_middleware(
 # ======================================================================================================================
 
 # ================================== Monitoring ========================================================================
-@app.get("/monitor/health",tags=["Monitoring"])
+@app.get("/monitor/health", tags=["Monitoring"])
 async def health_check():
     return StreamingResponse(
         check_server_health(), 
-        media_type="text/event-stream"
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
     )
 # ======================================================================================================================
 

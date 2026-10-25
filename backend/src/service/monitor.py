@@ -3,6 +3,7 @@ import psutil
 import datetime
 from pydantic import BaseModel
 from enum import Enum
+from fastapi.responses import StreamingResponse
 
 class Status(str, Enum):
     GREEN = "HEALTHY"
@@ -27,9 +28,12 @@ def bytes_to_gb(bytes_value: int) -> float:
 async def check_server_health():
     try:
         while True:
-            # Uptime
-            boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
-            uptime = str(datetime.datetime.now() - boot_time).split('.')[0]
+            # Uptime safely calculated from process or boot time
+            try:
+                boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
+                uptime = str(datetime.datetime.now() - boot_time).split('.')[0]
+            except Exception:
+                uptime = "N/A"
             
             # CPU
             cpu_usage = psutil.cpu_percent(interval=0.1)
@@ -37,29 +41,33 @@ async def check_server_health():
             # RAM
             ram = psutil.virtual_memory()
             
-            # Disk (defaults to the drive where the API is running)
+            # Disk
             disk = psutil.disk_usage('/')
-        
-            #Temperature
-            power = psutil.sensors_battery()
-            plugged = power.power_plugged # type: ignore
-            percent = power.percent # type: ignore
             
-            # Return the data matching our DTO
+            # Battery (Safe fallback for cloud servers like Render)
+            try:
+                power = psutil.sensors_battery()
+                plugged = power.power_plugged if power else True
+                percent = power.percent if power else 100.0
+            except Exception:
+                plugged = True
+                percent = 100.0
+            
+            # Build DTO and dump JSON
             data = SystemHealthDTO(
-                status=Status.GREEN if(cpu_usage<50 and ram.percent<70 and disk.percent<80) else Status.YELLOW if(cpu_usage<70 and ram.percent<80 and disk.percent<85) else Status.ORANGE if(cpu_usage<90 and ram.percent<90 and disk.percent<90) else Status.RED,
+                status=Status.GREEN if (cpu_usage < 50 and ram.percent < 70 and disk.percent < 80) else Status.YELLOW if (cpu_usage < 70 and ram.percent < 80 and disk.percent < 85) else Status.ORANGE if (cpu_usage < 90 and ram.percent < 90 and disk.percent < 90) else Status.RED,
                 uptime=uptime,
                 cpu_usage_percent=cpu_usage,
-                ram_left_gb=ram.free/(1024**3),
+                ram_left_gb=bytes_to_gb(ram.free),
                 ram_usage_percent=ram.percent,
                 disk_free_gb=bytes_to_gb(disk.free),
                 disk_usage_percent=disk.percent,
-                battery_life_percentage= 0.0 if(percent==None) else percent,
-                battery_is_power_plugged= False if(plugged==None) else plugged
+                battery_life_percentage=percent,
+                battery_is_power_plugged=plugged
             ).model_dump_json()
 
             yield f"data: {data}\n\n"
 
             await asyncio.sleep(10)
-    except KeyboardInterrupt:
-        print("Monitoring Done")
+    except asyncio.CancelledError:
+        pass
