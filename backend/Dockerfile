@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose your FastAPI port
-EXPOSE 8001
+EXPOSE 10000
 
 # Run Uvicorn pointing directly to main:app
 CMD ["python", "src/main.py"]
