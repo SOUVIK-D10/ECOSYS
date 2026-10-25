@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  oasis-backend:
+    build: .
+    container_name: oasis_backend_engine
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./db:/app/db  # Persists your SQLite database folder across container reboots
+    restart: unless-stopped

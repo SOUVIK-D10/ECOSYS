@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-sqlmodel
+sqlmodel==0.0.22
 customtkinter
 requests
 psutil
